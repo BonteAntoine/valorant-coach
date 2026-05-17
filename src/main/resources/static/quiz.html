@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Callouts — Valorant Coach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1117; }
+        .map-container { position: relative; user-select: none; }
+        .callout-dot {
+            position: absolute;
+            width: 22px; height: 22px;
+            background: #ff4655;
+            border: 3px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 1.2s infinite;
+            cursor: default;
+            z-index: 10;
+        }
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(255,70,85,0.7); }
+            70%  { box-shadow: 0 0 0 14px rgba(255,70,85,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,70,85,0); }
+        }
+        .answer-btn { transition: all 0.15s; }
+        .answer-btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .answer-correct { background: #14532d !important; border-color: #22c55e !important; color: #86efac !important; }
+        .answer-wrong   { background: #7f1d1d !important; border-color: #ef4444 !important; color: #fca5a5 !important; }
+        #timer-bar { transition: width 1s linear; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+    <header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <a href="/" class="text-gray-500 hover:text-white text-sm">← Accueil</a>
+            <span class="text-gray-700">|</span>
+            <h1 class="text-lg font-bold tracking-widest uppercase text-white">Quiz <span class="text-red-500">Callouts</span></h1>
+        </div>
+        <div id="score-display" class="hidden text-sm font-bold text-gray-400">
+            Score : <span id="score-val" class="text-white">0</span> / <span id="score-total">10</span>
+        </div>
+    </header>
+
+    <!-- Map selection -->
+    <div id="screen-select" class="max-w-3xl mx-auto px-6 py-12 text-center">
+        <h2 class="text-3xl font-bold text-white mb-2">Teste tes callouts</h2>
+        <p class="text-gray-400 mb-10">Choisis une map et identifie les zones en moins de 15 secondes chacune</p>
+        <div id="map-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- Quiz screen -->
+    <div id="screen-quiz" class="hidden max-w-5xl mx-auto px-4 py-6">
+        <div class="flex items-center justify-between mb-3">
+            <span id="question-counter" class="text-sm text-gray-400 uppercase tracking-wider"></span>
+            <span id="timer-text" class="text-lg font-bold text-red-400"></span>
+        </div>
+        <div class="w-full bg-gray-800 rounded-full h-1.5 mb-4">
+            <div id="timer-bar" class="bg-red-500 h-1.5 rounded-full w-full"></div>
+        </div>
+        <p class="text-center text-white font-bold text-lg mb-4">Où se trouve <span id="callout-name" class="text-red-400"></span> ?</p>
+        <div class="map-container rounded-xl overflow-hidden mb-6 mx-auto" style="max-width:560px">
+            <img id="map-img" src="" alt="map" class="w-full block">
+            <div id="callout-dot" class="callout-dot hidden"></div>
+        </div>
+        <div id="answers" class="grid grid-cols-2 gap-3 max-w-xl mx-auto"></div>
+    </div>
+
+    <!-- Results screen -->
+    <div id="screen-results" class="hidden max-w-xl mx-auto px-6 py-16 text-center">
+        <div id="result-emoji" class="text-6xl mb-4"></div>
+        <h2 class="text-3xl font-bold text-white mb-2">Résultat</h2>
+        <p class="text-gray-400 mb-6" id="result-sub"></p>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 mb-8">
+            <div class="text-6xl font-bold text-white mb-1">
+                <span id="final-score"></span><span class="text-gray-600 text-3xl"> / 10</span>
+            </div>
+            <div class="text-gray-400 mt-2" id="final-map"></div>
+        </div>
+        <div class="flex gap-3 justify-center flex-wrap">
+            <button onclick="restartSameMap()" class="bg-red-500 hover:bg-red-600 text-white font-bold px-6 py-3 rounded uppercase tracking-wider">
+                Rejouer
+            </button>
+            <button onclick="goToSelect()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white font-bold px-6 py-3 rounded uppercase tracking-wider">
+                Autre map
+            </button>
+            <button onclick="shareScore()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 font-bold px-6 py-3 rounded uppercase tracking-wider">
+                Partager
+            </button>
+        </div>
+    </div>
+
+<script>
+const MAPS = {
+    ascent: {
+        name: "Ascent",
+        img: "https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/minimap.png",
+        callouts: [
+            { name: "A Site",      x: 22, y: 28 },
+            { name: "A Main",      x: 13, y: 62 },
+            { name: "A Ramps",     x: 24, y: 52 },
+            { name: "Garden",      x: 36, y: 38 },
+            { name: "Catwalk",     x: 40, y: 22 },
+            { name: "Mid Top",     x: 50, y: 28 },
+            { name: "Market",      x: 54, y: 42 },
+            { name: "Mid Bottom",  x: 50, y: 58 },
+            { name: "Wine",        x: 44, y: 50 },
+            { name: "B Site",      x: 76, y: 28 },
+            { name: "B Main",      x: 83, y: 62 },
+            { name: "B Long",      x: 72, y: 48 },
+            { name: "Generator",   x: 62, y: 52 },
+            { name: "Spawn ATK",   x: 10, y: 82 },
+            { name: "Spawn DEF",   x: 88, y: 18 },
+        ]
+    },
+    bind: {
+        name: "Bind",
+        img: "https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-11dd-6182301eabb0/minimap.png",
+        callouts: [
+            { name: "A Site",      x: 78, y: 30 },
+            { name: "A Short",     x: 62, y: 30 },
+            { name: "A Lobby",     x: 50, y: 20 },
+            { name: "Showers",     x: 72, y: 55 },
+            { name: "Teleport A",  x: 55, y: 45 },
+            { name: "B Site",      x: 22, y: 65 },
+            { name: "B Long",      x: 35, y: 65 },
+            { name: "B Lobby",     x: 48, y: 78 },
+            { name: "Lamps",       x: 20, y: 50 },
+            { name: "Teleport B",  x: 42, y: 55 },
+            { name: "Spawn ATK",   x: 50, y: 50 },
+            { name: "Hook",        x: 25, y: 35 },
+        ]
+    },
+    haven: {
+        name: "Haven",
+        img: "https://media.valorant-api.com/maps/2bee0dc9-4ffe-519b-1cbd-7fbe763a6047/minimap.png",
+        callouts: [
+            { name: "A Site",      x: 15, y: 35 },
+            { name: "A Long",      x: 18, y: 60 },
+            { name: "A Short",     x: 30, y: 38 },
+            { name: "Mid",         x: 50, y: 50 },
+            { name: "Mid Doors",   x: 50, y: 38 },
+            { name: "C Site",      x: 85, y: 35 },
+            { name: "C Long",      x: 82, y: 60 },
+            { name: "C Short",     x: 70, y: 38 },
+            { name: "B Site",      x: 50, y: 22 },
+            { name: "Garage",      x: 50, y: 65 },
+            { name: "Spawn ATK",   x: 50, y: 82 },
+        ]
+    },
+    split: {
+        name: "Split",
+        img: "https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aed12a2/minimap.png",
+        callouts: [
+            { name: "A Site",      x: 20, y: 30 },
+            { name: "A Main",      x: 12, y: 55 },
+            { name: "A Ramps",     x: 25, y: 48 },
+            { name: "A Heaven",    x: 22, y: 20 },
+            { name: "Mid",         x: 50, y: 50 },
+            { name: "Mid Vent",    x: 50, y: 38 },
+            { name: "B Site",      x: 78, y: 30 },
+            { name: "B Main",      x: 85, y: 55 },
+            { name: "B Ramps",     x: 72, y: 48 },
+            { name: "B Heaven",    x: 76, y: 20 },
+            { name: "Mail",        x: 38, y: 62 },
+            { name: "Vent",        x: 62, y: 38 },
+        ]
+    },
+    icebox: {
+        name: "Icebox",
+        img: "https://media.valorant-api.com/maps/e2ad5c54-4114-a870-9641-8ea21279579a/minimap.png",
+        callouts: [
+            { name: "A Site",      x: 20, y: 35 },
+            { name: "A Rafters",   x: 20, y: 22 },
+            { name: "A Pipes",     x: 35, y: 35 },
+            { name: "Mid",         x: 50, y: 55 },
+            { name: "Tube",        x: 50, y: 38 },
+            { name: "B Site",      x: 78, y: 35 },
+            { name: "B Orange",    x: 78, y: 22 },
+            { name: "B Yellow",    x: 65, y: 45 },
+            { name: "Spawn ATK",   x: 50, y: 78 },
+            { name: "Kitchen",     x: 35, y: 55 },
+        ]
+    }
+};
+
+const NB_QUESTIONS = 10;
+let currentMap = null;
+let questions = [];
+let currentQ = 0;
+let score = 0;
+let timer = null;
+let timeLeft = 15;
+let answered = false;
+
+// Build map selection grid
+const grid = document.getElementById('map-grid');
+Object.entries(MAPS).forEach(([key, map]) => {
+    const btn = document.createElement('button');
+    btn.className = 'relative overflow-hidden rounded-xl border border-gray-700 hover:border-red-500 transition-all group';
+    btn.innerHTML = `
+        <img src="${map.img}" alt="${map.name}" class="w-full h-32 object-cover opacity-60 group-hover:opacity-80 transition-opacity">
+        <div class="absolute inset-0 flex items-end p-3">
+            <span class="text-white font-bold uppercase tracking-wider text-sm">${map.name}</span>
+        </div>`;
+    btn.onclick = () => startQuiz(key);
+    grid.appendChild(btn);
+});
+
+function startQuiz(mapKey) {
+    currentMap = mapKey;
+    const map = MAPS[mapKey];
+    const shuffled = [...map.callouts].sort(() => Math.random() - 0.5);
+    questions = shuffled.slice(0, Math.min(NB_QUESTIONS, shuffled.length));
+    currentQ = 0;
+    score = 0;
+
+    document.getElementById('screen-select').classList.add('hidden');
+    document.getElementById('screen-results').classList.add('hidden');
+    document.getElementById('screen-quiz').classList.remove('hidden');
+    document.getElementById('score-display').classList.remove('hidden');
+    document.getElementById('score-total').textContent = questions.length;
+    document.getElementById('map-img').src = map.img;
+
+    showQuestion();
+}
+
+function showQuestion() {
+    if (currentQ >= questions.length) { showResults(); return; }
+
+    answered = false;
+    const q = questions[currentQ];
+    const map = MAPS[currentMap];
+
+    document.getElementById('question-counter').textContent = `Question ${currentQ + 1} / ${questions.length}`;
+    document.getElementById('callout-name').textContent = q.name;
+    document.getElementById('score-val').textContent = score;
+
+    // Place dot
+    const dot = document.getElementById('callout-dot');
+    dot.style.left = q.x + '%';
+    dot.style.top  = q.y + '%';
+    dot.classList.remove('hidden');
+
+    // Build 4 answer choices: the correct one + 3 random wrong ones
+    const wrong = map.callouts
+        .filter(c => c.name !== q.name)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+        .map(c => c.name);
+    const choices = [...wrong, q.name].sort(() => Math.random() - 0.5);
+
+    const answersEl = document.getElementById('answers');
+    answersEl.innerHTML = '';
+    choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'answer-btn bg-gray-800 border border-gray-700 hover:border-red-500 text-white font-bold px-4 py-3 rounded-lg text-sm uppercase tracking-wide';
+        btn.textContent = choice;
+        btn.onclick = () => selectAnswer(choice, q.name);
+        answersEl.appendChild(btn);
+    });
+
+    startTimer();
+}
+
+function startTimer() {
+    timeLeft = 15;
+    document.getElementById('timer-text').textContent = timeLeft + 's';
+    document.getElementById('timer-bar').style.width = '100%';
+
+    clearInterval(timer);
+    timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer-text').textContent = timeLeft + 's';
+        document.getElementById('timer-bar').style.width = (timeLeft / 15 * 100) + '%';
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            if (!answered) selectAnswer(null, questions[currentQ].name);
+        }
+    }, 1000);
+}
+
+function selectAnswer(chosen, correct) {
+    if (answered) return;
+    answered = true;
+    clearInterval(timer);
+
+    const btns = document.querySelectorAll('#answers .answer-btn');
+    btns.forEach(btn => {
+        btn.disabled = true;
+        if (btn.textContent === correct) btn.classList.add('answer-correct');
+        else if (btn.textContent === chosen)  btn.classList.add('answer-wrong');
+    });
+
+    if (chosen === correct) score++;
+    document.getElementById('score-val').textContent = score;
+
+    setTimeout(() => { currentQ++; showQuestion(); }, 1200);
+}
+
+function showResults() {
+    clearInterval(timer);
+    document.getElementById('screen-quiz').classList.add('hidden');
+    document.getElementById('screen-results').classList.remove('hidden');
+
+    const total = questions.length;
+    const pct = score / total;
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('final-map').textContent = MAPS[currentMap].name;
+
+    let emoji, sub;
+    if (pct === 1)        { emoji = '🏆'; sub = 'Parfait ! Tu connais cette map par cœur.'; }
+    else if (pct >= 0.8)  { emoji = '🔥'; sub = 'Excellent ! Presque parfait.'; }
+    else if (pct >= 0.6)  { emoji = '👍'; sub = 'Pas mal ! Continue à t\'entraîner.'; }
+    else if (pct >= 0.4)  { emoji = '😅'; sub = 'Tu dois revoir tes callouts...'; }
+    else                  { emoji = '💀'; sub = 'Tu joues à l\'aveugle là non ?'; }
+
+    document.getElementById('result-emoji').textContent = emoji;
+    document.getElementById('result-sub').textContent = sub;
+}
+
+function restartSameMap() {
+    document.getElementById('screen-results').classList.add('hidden');
+    startQuiz(currentMap);
+}
+
+function goToSelect() {
+    clearInterval(timer);
+    document.getElementById('screen-quiz').classList.add('hidden');
+    document.getElementById('screen-results').classList.add('hidden');
+    document.getElementById('screen-select').classList.remove('hidden');
+    document.getElementById('score-display').classList.add('hidden');
+}
+
+function shareScore() {
+    const text = `J'ai eu ${document.getElementById('final-score').textContent}/10 au quiz callouts ${MAPS[currentMap].name} sur Valorant Coach AI ! 🎯 valorant-coach-production.up.railway.app/quiz.html`;
+    navigator.clipboard.writeText(text).then(() => alert('Copié dans le presse-papier !'));
+}
+</script>
+</body>
+</html>
