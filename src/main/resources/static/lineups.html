@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lineups — Valorant Coach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1117; }
+        .filter-btn { transition: all 0.15s; }
+        .filter-active { border-color: #ff4655 !important; background: rgba(255,70,85,0.1) !important; color: white !important; }
+        .lineup-card { transition: all 0.2s; }
+        .lineup-card:hover { transform: translateY(-2px); border-color: #374151; }
+        .tag { font-size: 11px; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
+    </div>
+    <nav class="flex gap-4 text-sm font-bold uppercase tracking-wider flex-wrap">
+        <a href="/" class="text-gray-400 hover:text-white">Coaching</a>
+        <a href="/quiz.html" class="text-gray-400 hover:text-white">Quiz</a>
+        <a href="/eco.html" class="text-gray-400 hover:text-white">Éco</a>
+        <a href="/crosshair.html" class="text-gray-400 hover:text-white">Crosshair</a>
+        <a href="/challenges.html" class="text-gray-400 hover:text-white">Challenges</a>
+        <a href="/lineups.html" class="text-red-400">Lineups</a>
+    </nav>
+</header>
+
+<main class="max-w-5xl mx-auto px-6 py-12">
+    <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-white mb-2">Base de Lineups</h2>
+        <p class="text-gray-400">Smokes, flashes et molotovs — filtre par agent et par map.</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="space-y-4 mb-8">
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Agent</p>
+            <div class="flex gap-2 flex-wrap" id="agent-filters"></div>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Map</p>
+            <div class="flex gap-2 flex-wrap" id="map-filters"></div>
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Type</p>
+            <div class="flex gap-2 flex-wrap" id="type-filters"></div>
+        </div>
+    </div>
+
+    <!-- Results count -->
+    <div class="text-sm text-gray-500 mb-4"><span id="count">0</span> lineups trouvés</div>
+
+    <!-- Grid -->
+    <div id="lineups-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+    <!-- Modal -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onclick="closeModal(event)">
+        <div class="bg-gray-900 border border-gray-700 rounded-xl max-w-lg w-full p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 id="modal-title" class="text-xl font-bold text-white"></h3>
+                    <div id="modal-tags" class="flex gap-2 mt-1"></div>
+                </div>
+                <button onclick="document.getElementById('modal').classList.add('hidden')" class="text-gray-500 hover:text-white text-2xl">×</button>
+            </div>
+            <div id="modal-img-wrap" class="bg-gray-800 rounded-lg mb-4 flex items-center justify-center h-48 overflow-hidden">
+                <div class="text-center text-gray-500">
+                    <div class="text-4xl mb-2">🎬</div>
+                    <div class="text-sm">Vidéo / Image à venir</div>
+                    <div class="text-xs mt-1 text-gray-600">Les lineups visuels seront ajoutés prochainement</div>
+                </div>
+            </div>
+            <p id="modal-desc" class="text-gray-300 text-sm leading-relaxed mb-4"></p>
+            <div id="modal-steps" class="space-y-2"></div>
+        </div>
+    </div>
+</main>
+
+<script>
+const LINEUPS = [
+    // BRIMSTONE — ASCENT
+    { agent:'Brimstone', map:'Ascent', type:'Smoke', title:'A Site smoke depuis Mid', difficulty:'Facile',
+      desc:'Smoke le box A depuis la fenêtre de mid pour couper la vision du défenseur.',
+      steps:['Position : fenêtre mid côté attaquant','Vise le coin haut-droit du bâtiment A','Lance la smoke — elle atterrit sur le box','Idéal pour push A en split avec ta team'] },
+    { agent:'Brimstone', map:'Ascent', type:'Smoke', title:'B Site smoke depuis B Main', difficulty:'Facile',
+      desc:'Smoke le CT de B pour permettre un push propre sur le site.',
+      steps:['Position : entrée B Main','Smoke le coin CT côté défenseur','Lance simultanément la smoke sur le cubby B','Push direct sur le site'] },
+    { agent:'Brimstone', map:'Bind', type:'Smoke', title:'A Short smoke depuis Spawn', difficulty:'Moyen',
+      desc:'Smoke A Short depuis le spawn attaquant pour push A sans être vu.',
+      steps:['Position : spawn attaquant côté A','Sélectionne la smoke la plus à gauche','Vise le toit de A Short','Lance et rush A derrière la smoke'] },
+
+    // VIPER — ASCENT
+    { agent:'Viper', map:'Ascent', type:'Smoke', title:'Mid wall one-way', difficulty:'Moyen',
+      desc:'Mur de poison couvrant tout mid pour split le map en deux.',
+      steps:['Position : derrière le pilier spawn','Lance le mur de gauche à droite en diagonale','Le mur coupe mid top et mid market','One-way smoke depuis catwalk possible en bonus'] },
+    { agent:'Viper', map:'Haven', type:'Molotov', title:'C Long molotov depuis spawn', difficulty:'Difficile',
+      desc:'Molotov qui atterrit sur le choke de C Long sans t\'exposer.',
+      steps:['Position : juste après la porte spawn côté C','Regarde le mur en face à ~45°','Lance le molotov avec clic droit','Il rebondit et atterrit au choke de C Long'] },
+
+    // SAGE — SPLIT
+    { agent:'Sage', map:'Split', type:'Wall', title:'Boost A Heaven', difficulty:'Moyen',
+      desc:'Mur de glace pour booster un coéquipier sur A Heaven depuis A Ramps.',
+      steps:['Position : pied de A Ramps','Place le mur collé au mur de gauche','Ton coéquipier monte sur le mur','Il accède à A Heaven en avance sur le timing normal'] },
+    { agent:'Sage', map:'Ascent', type:'Wall', title:'Wall Mid B side', difficulty:'Facile',
+      desc:'Mur bloquant Mid côté B pour couper les rotations défensives.',
+      steps:['Position : market côté attaquant','Place le mur en travers de l\'entrée mid-B','Aucun défenseur ne peut traverser sans le casser','Donne 20 secondes de tranquillité pour rush B'] },
+
+    // SOVA — BIND
+    { agent:'Sova', map:'Bind', type:'Info', title:'Recon dart B depuis Teleport', difficulty:'Moyen',
+      desc:'Dart de reconnaissance couvrant tout B Site depuis le téléporteur.',
+      steps:['Position : intérieur du téléporteur B','2 rebonds — vise le mur du fond à ~30°','La flèche rebondit et se colle au plafond de B','Révèle tous les défenseurs sur B Site'] },
+    { agent:'Sova', map:'Ascent', type:'Info', title:'Drone rush A cat', difficulty:'Facile',
+      desc:'Utilise le drone pour checker Catwalk avant de push.',
+      steps:['Lance le drone depuis mid top','Longe le mur de catwalk','Check les deux angles possibles','Informe ta team avant de push'] },
+
+    // OMEN — HAVEN
+    { agent:'Omen', map:'Haven', type:'Smoke', title:'3 smokes B split', difficulty:'Difficile',
+      desc:'3 smokes simultanées couvrant B Site pour rush direct.',
+      steps:['Smoke 1 : CT B (angle défenseur)','Smoke 2 : garage entrance','Smoke 3 : window B','Rush B à 3 derrière les 3 smokes — timing clé : avant que les smokes expirent'] },
+
+    // KAY/O — SPLIT
+    { agent:'KAY/O', map:'Split', type:'Flash', title:'Flash over B Main', difficulty:'Facile',
+      desc:'Flash par-dessus le mur de B Main pour flash les défenseurs sur B Site.',
+      steps:['Position : B Main entrance','Vise au-dessus du mur à ~70° vers le ciel','Lance la grenade flash par-dessus','Attends 0.5s puis rush B Site'] },
+
+    // NEON — BIND
+    { agent:'Neon', map:'Bind', type:'Info', title:'Rush A avec sprint', difficulty:'Moyen',
+      desc:'Utilise le sprint de Neon pour atteindre A Short avant les défenseurs.',
+      steps:['Position : spawn côté A','Active le sprint dès le début du round','Arrive sur A Short en 4 secondes','Les défenseurs ne sont pas encore en position — first pick facile'] },
+
+    // JETT — ASCENT
+    { agent:'Jett', map:'Ascent', type:'Info', title:'Updraft A Heaven check', difficulty:'Facile',
+      desc:'Updraft pour accéder à A Heaven en avance et checker la position.',
+      steps:['Position : pied du mur A Heaven','Updraft + Dash vers le rebord','Tu arrives sur A Heaven 2s avant le timing normal','Check l\'angle puis repositionne-toi'] },
+
+    // REYNA — SPLIT
+    { agent:'Reyna', map:'Split', type:'Info', title:'Flash + agression B', difficulty:'Moyen',
+      desc:'Utilise l\'œil de Reyna pour flash les défenseurs sur B et tenter le first blood.',
+      steps:['Position : B Ramps','Lance l\'œil en lob par-dessus le muret','Attends que l\'ennemi soit flash (0.8s)','Rush et tente le duel — Reyna est trop forte en 1v1 après un flash'] },
+];
+
+const agents = [...new Set(LINEUPS.map(l => l.agent))];
+const maps   = [...new Set(LINEUPS.map(l => l.map))];
+const types  = [...new Set(LINEUPS.map(l => l.type))];
+
+let filters = { agent: null, map: null, type: null };
+
+function buildFilters() {
+    buildFilterGroup('agent-filters', agents, 'agent');
+    buildFilterGroup('map-filters', maps, 'map');
+    buildFilterGroup('type-filters', types, 'type');
+}
+
+function buildFilterGroup(containerId, items, filterKey) {
+    const container = document.getElementById(containerId);
+    const allBtn = document.createElement('button');
+    allBtn.className = 'filter-btn filter-active px-3 py-1.5 rounded-lg border border-gray-700 text-sm font-bold text-gray-400';
+    allBtn.textContent = 'Tous';
+    allBtn.dataset.value = '';
+    allBtn.onclick = () => setFilter(filterKey, null, containerId);
+    container.appendChild(allBtn);
+
+    items.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn px-3 py-1.5 rounded-lg border border-gray-700 text-sm font-bold text-gray-400';
+        btn.textContent = item;
+        btn.dataset.value = item;
+        btn.onclick = () => setFilter(filterKey, item, containerId);
+        container.appendChild(btn);
+    });
+}
+
+function setFilter(key, value, containerId) {
+    filters[key] = value;
+    const btns = document.getElementById(containerId).querySelectorAll('button');
+    btns.forEach(b => {
+        b.classList.toggle('filter-active', b.dataset.value === (value || ''));
+    });
+    renderLineups();
+}
+
+function renderLineups() {
+    const filtered = LINEUPS.filter(l =>
+        (!filters.agent || l.agent === filters.agent) &&
+        (!filters.map   || l.map   === filters.map)   &&
+        (!filters.type  || l.type  === filters.type)
+    );
+
+    document.getElementById('count').textContent = filtered.length;
+    const grid = document.getElementById('lineups-grid');
+    grid.innerHTML = '';
+
+    const diffColor = { 'Facile': 'text-green-400', 'Moyen': 'text-yellow-400', 'Difficile': 'text-red-400' };
+    const typeColor = { 'Smoke': 'bg-blue-900 text-blue-300', 'Flash': 'bg-yellow-900 text-yellow-300', 'Molotov': 'bg-orange-900 text-orange-300', 'Wall': 'bg-purple-900 text-purple-300', 'Info': 'bg-gray-700 text-gray-300' };
+
+    filtered.forEach((l, i) => {
+        const card = document.createElement('div');
+        card.className = 'lineup-card bg-gray-900 border border-gray-800 rounded-xl p-4 cursor-pointer';
+        card.onclick = () => openModal(l);
+        card.innerHTML = `
+            <div class="flex items-start justify-between mb-3">
+                <span class="tag px-2 py-0.5 rounded font-bold uppercase ${typeColor[l.type] || 'bg-gray-700 text-gray-300'}">${l.type}</span>
+                <span class="text-xs font-bold ${diffColor[l.difficulty]}">${l.difficulty}</span>
+            </div>
+            <h3 class="font-bold text-white mb-1">${l.title}</h3>
+            <div class="flex gap-2 text-xs text-gray-500 mb-2">
+                <span>${l.agent}</span><span>·</span><span>${l.map}</span>
+            </div>
+            <p class="text-xs text-gray-400 line-clamp-2">${l.desc}</p>
+            <div class="mt-3 text-xs text-red-400 font-bold">Voir le lineup →</div>`;
+        grid.appendChild(card);
+    });
+}
+
+function openModal(l) {
+    const typeColor = { 'Smoke': 'bg-blue-900 text-blue-300', 'Flash': 'bg-yellow-900 text-yellow-300', 'Molotov': 'bg-orange-900 text-orange-300', 'Wall': 'bg-purple-900 text-purple-300', 'Info': 'bg-gray-700 text-gray-300' };
+    document.getElementById('modal-title').textContent = l.title;
+    document.getElementById('modal-tags').innerHTML = `
+        <span class="tag px-2 py-0.5 rounded font-bold uppercase text-xs ${typeColor[l.type]}">${l.type}</span>
+        <span class="text-xs text-gray-500 py-0.5">${l.agent} · ${l.map}</span>`;
+    document.getElementById('modal-desc').textContent = l.desc;
+    document.getElementById('modal-steps').innerHTML = l.steps.map((s, i) =>
+        `<div class="flex gap-3 text-sm">
+            <span class="text-red-500 font-bold flex-shrink-0">${i+1}.</span>
+            <span class="text-gray-300">${s}</span>
+        </div>`).join('');
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal(e) {
+    if (e.target === document.getElementById('modal'))
+        document.getElementById('modal').classList.add('hidden');
+}
+
+buildFilters();
+renderLineups();
+</script>
+</body>
+</html>

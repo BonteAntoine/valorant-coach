@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challenges — Valorant Coach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1117; }
+        .challenge-card { transition: all 0.2s; }
+        .progress-ring { transform: rotate(-90deg); }
+        .checked { text-decoration: line-through; opacity: 0.5; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
+    </div>
+    <nav class="flex gap-4 text-sm font-bold uppercase tracking-wider flex-wrap">
+        <a href="/" class="text-gray-400 hover:text-white">Coaching</a>
+        <a href="/quiz.html" class="text-gray-400 hover:text-white">Quiz</a>
+        <a href="/eco.html" class="text-gray-400 hover:text-white">Éco</a>
+        <a href="/crosshair.html" class="text-gray-400 hover:text-white">Crosshair</a>
+        <a href="/challenges.html" class="text-red-400">Challenges</a>
+        <a href="/lineups.html" class="text-gray-400 hover:text-white">Lineups</a>
+    </nav>
+</header>
+
+<main class="max-w-3xl mx-auto px-6 py-12">
+    <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-white mb-2">Challenges Hebdomadaires</h2>
+        <p class="text-gray-400">7 objectifs pour progresser cette semaine. Coche-les au fur et à mesure.</p>
+    </div>
+
+    <!-- Profil selector -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-8">
+        <p class="text-sm text-gray-400 mb-3 font-bold uppercase tracking-wider">Ton profil</p>
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="setProfile('aim')" id="p-aim" class="profile-btn px-4 py-2 rounded-lg border border-gray-700 text-sm font-bold text-gray-400">🎯 Aim</button>
+            <button onclick="setProfile('game')" id="p-game" class="profile-btn px-4 py-2 rounded-lg border border-gray-700 text-sm font-bold text-gray-400">🧠 Game sense</button>
+            <button onclick="setProfile('util')" id="p-util" class="profile-btn px-4 py-2 rounded-lg border border-gray-700 text-sm font-bold text-gray-400">💨 Utilité</button>
+            <button onclick="setProfile('all')" id="p-all" class="profile-btn px-4 py-2 rounded-lg border border-red-500 bg-red-900/20 text-sm font-bold text-red-300">⚡ Tout</button>
+        </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <div class="text-2xl font-bold text-white"><span id="done-count">0</span><span class="text-gray-600 text-lg"> / 7</span></div>
+            <div class="text-xs text-gray-500 uppercase tracking-wider">complétés cette semaine</div>
+        </div>
+        <div class="w-48 bg-gray-800 rounded-full h-2">
+            <div id="global-bar" class="bg-red-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+        </div>
+    </div>
+
+    <!-- Challenges list -->
+    <div id="challenges-list" class="space-y-3"></div>
+
+    <div class="mt-8 text-center">
+        <button onclick="resetWeek()" class="text-gray-600 hover:text-gray-400 text-sm underline">Réinitialiser la semaine</button>
+    </div>
+</main>
+
+<script>
+const CHALLENGES = {
+    aim: [
+        { icon: '🎯', title: '20 min Aim Lab', desc: 'Fais "Gridshot" jusqu\'à dépasser 80k score. Chronométré.', xp: 100 },
+        { icon: '💀', title: 'HS% > 25%', desc: 'Termine une partie compétitive avec au moins 25% de headshots.', xp: 150 },
+        { icon: '🔫', title: '30 min Deathmatch', desc: 'Focus total crosshair placement — pas de flick, que du pré-aim.', xp: 100 },
+        { icon: '🏹', title: 'Tracking 15 min', desc: 'Aim Lab "1Wall6Targets Tracking" — améliore ta sensibilité.', xp: 80 },
+    ],
+    game: [
+        { icon: '🧠', title: 'Review 1 partie', desc: 'Regarde un de tes replays. Note 3 erreurs de positionnement.', xp: 120 },
+        { icon: '📡', title: 'Écoute active', desc: 'Joue une partie en coupant ta musique. Focus sons de pas uniquement.', xp: 100 },
+        { icon: '🗺️', title: 'Maîtrise une map', desc: 'Joue 3 parties sur la même map et note les patterns ennemis.', xp: 130 },
+        { icon: '⏱️', title: 'Timings parfaits', desc: 'Mémorise et applique les timings d\'une map en ranked.', xp: 110 },
+    ],
+    util: [
+        { icon: '💨', title: 'Smokes parfaites', desc: 'Place tes smokes sur les 3 sites d\'une map sans regarder de tuto.', xp: 120 },
+        { icon: '⚡', title: 'Flash assist', desc: 'Termine une partie avec au moins 3 assists de flash.', xp: 100 },
+        { icon: '🎓', title: 'Apprendre 2 lineups', desc: 'Entraîne-toi sur 2 nouveaux lineups de ton agent principal.', xp: 150 },
+        { icon: '🤝', title: 'Jeu collectif', desc: 'Finis une partie avec plus d\'assists que de kills.', xp: 130 },
+    ],
+    bonus: [
+        { icon: '🏆', title: 'Win streak x3', desc: 'Enchaîne 3 victoires consécutives en ranked.', xp: 200 },
+        { icon: '📈', title: 'Améliore ton rank', desc: 'Gagne au moins un RR positif cette semaine.', xp: 250 },
+        { icon: '🧘', title: 'Pause tilt', desc: 'Arrête de jouer dès que tu tiltes. Reprends 30 min après.', xp: 80 },
+    ]
+};
+
+let profile = 'all';
+let checked = JSON.parse(localStorage.getItem('valo-challenges') || '{}');
+let currentChallenges = [];
+
+function setProfile(p) {
+    profile = p;
+    document.querySelectorAll('.profile-btn').forEach(b => {
+        b.className = 'profile-btn px-4 py-2 rounded-lg border border-gray-700 text-sm font-bold text-gray-400';
+    });
+    document.getElementById('p-' + p).className = 'profile-btn px-4 py-2 rounded-lg border border-red-500 bg-red-900/20 text-sm font-bold text-red-300';
+    generateChallenges();
+}
+
+function generateChallenges() {
+    let pool = [];
+    if (profile === 'all' || profile === 'aim')  pool = pool.concat(CHALLENGES.aim);
+    if (profile === 'all' || profile === 'game') pool = pool.concat(CHALLENGES.game);
+    if (profile === 'all' || profile === 'util') pool = pool.concat(CHALLENGES.util);
+    pool = pool.concat(CHALLENGES.bonus);
+
+    const shuffled = pool.sort(() => Math.random() - 0.5);
+    currentChallenges = shuffled.slice(0, 7);
+    renderChallenges();
+}
+
+function renderChallenges() {
+    const list = document.getElementById('challenges-list');
+    list.innerHTML = '';
+
+    currentChallenges.forEach((ch, i) => {
+        const id = 'ch-' + i;
+        const done = !!checked[id];
+        const div = document.createElement('div');
+        div.className = 'challenge-card bg-gray-900 border ' + (done ? 'border-green-800' : 'border-gray-800') + ' rounded-xl p-4 flex items-start gap-4 cursor-pointer hover:border-gray-600 transition-all';
+        div.onclick = () => toggle(id, i);
+        div.innerHTML = `
+            <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl ${done ? 'bg-green-900' : 'bg-gray-800'}">${done ? '✅' : ch.icon}</div>
+            <div class="flex-1 min-w-0">
+                <div class="font-bold text-white ${done ? 'checked' : ''}">${ch.title}</div>
+                <div class="text-sm text-gray-400 mt-0.5 ${done ? 'checked' : ''}">${ch.desc}</div>
+            </div>
+            <div class="flex-shrink-0 text-xs font-bold ${done ? 'text-green-400' : 'text-gray-600'} uppercase">+${ch.xp} XP</div>`;
+        list.appendChild(div);
+    });
+
+    updateProgress();
+}
+
+function toggle(id, i) {
+    checked[id] = !checked[id];
+    localStorage.setItem('valo-challenges', JSON.stringify(checked));
+    renderChallenges();
+}
+
+function updateProgress() {
+    const done = currentChallenges.filter((_, i) => !!checked['ch-' + i]).length;
+    document.getElementById('done-count').textContent = done;
+    document.getElementById('global-bar').style.width = (done / 7 * 100) + '%';
+}
+
+function resetWeek() {
+    if (!confirm('Réinitialiser tous les challenges ?')) return;
+    checked = {};
+    localStorage.removeItem('valo-challenges');
+    generateChallenges();
+}
+
+generateChallenges();
+</script>
+</body>
+</html>
