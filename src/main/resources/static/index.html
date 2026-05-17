@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valorant Coach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { background-color: #0f1117; }
+        .agent-card { transition: transform 0.2s; }
+        .agent-card:hover { transform: translateY(-2px); }
+        #analysis-content h1, #analysis-content h2, #analysis-content h3 {
+            color: #ff4655; font-weight: 700; margin: 1rem 0 0.5rem;
+        }
+        #analysis-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+        #analysis-content p { margin: 0.5rem 0; line-height: 1.7; }
+        #analysis-content strong { color: #e5e7eb; }
+        #analysis-content hr { border-color: #374151; margin: 1rem 0; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 px-6 py-4 flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-6 py-12">
+
+        <!-- Search form -->
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-white mb-2">Analyse ta progression</h2>
+            <p class="text-gray-400 mb-8">Entre ton Riot ID pour recevoir un rapport de coaching personnalisé</p>
+
+            <div class="flex gap-3 justify-center flex-wrap mb-4">
+                <input id="input-name" type="text" placeholder="Pseudo"
+                    class="bg-gray-800 border border-gray-700 rounded px-4 py-3 text-white w-48 focus:outline-none focus:border-red-500">
+                <span class="flex items-center text-gray-500 text-xl">#</span>
+                <input id="input-tag" type="text" placeholder="TAG"
+                    class="bg-gray-800 border border-gray-700 rounded px-4 py-3 text-white w-28 focus:outline-none focus:border-red-500">
+                <button id="btn-analyze" onclick="analyze()"
+                    class="bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-3 rounded uppercase tracking-wider transition-colors">
+                    Analyser
+                </button>
+            </div>
+            <div class="flex gap-3 justify-center">
+                <button id="btn-drill" onclick="setStyle('drill')"
+                    class="style-btn bg-red-900 border border-red-500 text-red-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all">
+                    🔥 Drill Sergeant
+                </button>
+                <button id="btn-coach" onclick="setStyle('coach')"
+                    class="style-btn bg-gray-800 border border-gray-600 text-gray-400 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all">
+                    🎯 Coach Pro
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden text-center py-16">
+            <div class="inline-block w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-400">Analyse de tes parties en cours...</p>
+        </div>
+
+        <!-- Error -->
+        <div id="error" class="hidden bg-red-900/30 border border-red-700 rounded p-4 text-red-300 text-center mb-8"></div>
+
+        <!-- Results -->
+        <div id="results" class="hidden">
+
+            <!-- Match cards -->
+            <h3 class="text-lg font-bold uppercase tracking-wider text-gray-400 mb-4">Dernières parties</h3>
+            <div id="match-cards" class="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-10"></div>
+
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-4">
+                <button id="tab-analysis" onclick="switchTab('analysis')"
+                    class="tab-btn bg-red-900 border border-red-500 text-red-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider">
+                    Rapport
+                </button>
+                <button id="tab-plan" onclick="switchTab('plan')"
+                    class="tab-btn bg-gray-800 border border-gray-700 text-gray-400 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider">
+                    Plan 4 semaines
+                </button>
+            </div>
+
+            <!-- Analysis -->
+            <div id="panel-analysis" class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <div id="analysis-content" class="text-gray-300 text-sm leading-relaxed"></div>
+            </div>
+
+            <!-- Weekly Plan -->
+            <div id="panel-plan" class="hidden bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <div id="plan-content" class="text-gray-300 text-sm leading-relaxed"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let currentStyle = 'drill';
+
+        function setStyle(style) {
+            currentStyle = style;
+            document.getElementById('btn-drill').className = style === 'drill'
+                ? 'style-btn bg-red-900 border border-red-500 text-red-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all'
+                : 'style-btn bg-gray-800 border border-gray-600 text-gray-400 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all';
+            document.getElementById('btn-coach').className = style === 'coach'
+                ? 'style-btn bg-blue-900 border border-blue-500 text-blue-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all'
+                : 'style-btn bg-gray-800 border border-gray-600 text-gray-400 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all';
+        }
+
+        async function analyze() {
+            const name = document.getElementById('input-name').value.trim();
+            const tag = document.getElementById('input-tag').value.trim();
+
+            if (!name || !tag) return;
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('btn-analyze').disabled = true;
+
+            try {
+                const res = await fetch(`/api/coach/report?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&style=${currentStyle}`);
+                if (!res.ok) throw new Error('Erreur serveur');
+                const data = await res.json();
+                renderResults(data);
+            } catch (e) {
+                document.getElementById('error').textContent = 'Une erreur est survenue. Vérifie ton Riot ID.';
+                document.getElementById('error').classList.remove('hidden');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('btn-analyze').disabled = false;
+            }
+        }
+
+        function renderResults(data) {
+            const cards = document.getElementById('match-cards');
+            cards.innerHTML = '';
+
+            data.matches.forEach(m => {
+                const kd = m.deaths > 0 ? (m.kills / m.deaths).toFixed(2) : m.kills.toFixed(2);
+                const color = m.won ? 'border-green-600' : 'border-red-700';
+                const badge = m.won
+                    ? '<span class="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">V</span>'
+                    : '<span class="text-xs bg-red-900 text-red-400 px-2 py-0.5 rounded">D</span>';
+
+                cards.innerHTML += `
+                    <div class="agent-card bg-gray-900 border ${color} rounded-lg p-4 text-center">
+                        <div class="flex justify-between items-center mb-2">${badge}<span class="text-xs text-gray-500">${m.roundsWon}-${m.roundsLost}</span></div>
+                        <div class="text-white font-bold mb-1">${m.agent}</div>
+                        <div class="text-lg font-bold text-white">${m.kills}/${m.deaths}/${m.assists}</div>
+                        <div class="text-xs text-gray-400 mt-1">KD ${kd} · HS ${m.headshotPct}%</div>
+                        <div class="text-xs text-gray-500 mt-1">${m.damageDealt} dmg</div>
+                    </div>`;
+            });
+
+            document.getElementById('analysis-content').innerHTML = marked.parse(data.analysis);
+            document.getElementById('plan-content').innerHTML = marked.parse(data.weeklyPlan);
+            switchTab('analysis');
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function switchTab(tab) {
+            document.getElementById('panel-analysis').classList.toggle('hidden', tab !== 'analysis');
+            document.getElementById('panel-plan').classList.toggle('hidden', tab !== 'plan');
+            document.getElementById('tab-analysis').className = tab === 'analysis'
+                ? 'tab-btn bg-red-900 border border-red-500 text-red-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider'
+                : 'tab-btn bg-gray-800 border border-gray-700 text-gray-400 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider';
+            document.getElementById('tab-plan').className = tab === 'plan'
+                ? 'tab-btn bg-red-900 border border-red-500 text-red-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider'
+                : 'tab-btn bg-gray-800 border border-gray-700 text-gray-400 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') analyze();
+        });
+    </script>
+</body>
+</html>
