@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculateur Éco — Valorant Coach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1117; }
+        input[type=range] { accent-color: #ff4655; }
+        .rec-card { transition: all 0.3s; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
+    </div>
+    <nav class="flex gap-4 text-sm font-bold uppercase tracking-wider">
+        <a href="/" class="text-gray-400 hover:text-white transition-colors">Coaching</a>
+        <a href="/quiz.html" class="text-gray-400 hover:text-white transition-colors">Quiz</a>
+        <a href="/eco.html" class="text-red-400">Éco</a>
+        <a href="/crosshair.html" class="text-gray-400 hover:text-white transition-colors">Crosshair</a>
+    </nav>
+</header>
+
+<main class="max-w-2xl mx-auto px-6 py-12">
+    <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-white mb-2">Calculateur Éco</h2>
+        <p class="text-gray-400">Sais pas quoi acheter ? Dis-moi ta situation, je te dis quoi faire.</p>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6 space-y-6">
+
+        <!-- Credits -->
+        <div>
+            <div class="flex justify-between mb-2">
+                <label class="text-sm font-bold uppercase tracking-wider text-gray-400">Tes crédits</label>
+                <span id="credits-val" class="text-white font-bold">3900 ¢</span>
+            </div>
+            <input type="range" id="credits" min="0" max="9000" step="100" value="3900"
+                class="w-full" oninput="update()">
+            <div class="flex justify-between text-xs text-gray-600 mt-1">
+                <span>0</span><span>9000</span>
+            </div>
+        </div>
+
+        <!-- Score -->
+        <div>
+            <label class="text-sm font-bold uppercase tracking-wider text-gray-400 block mb-3">Score actuel</label>
+            <div class="flex items-center gap-4 justify-center">
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-1">Ton équipe</div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeScore('my',-1)" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded font-bold">-</button>
+                        <span id="score-my" class="text-2xl font-bold text-white w-8 text-center">5</span>
+                        <button onclick="changeScore('my',1)" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded font-bold">+</button>
+                    </div>
+                </div>
+                <span class="text-gray-600 text-2xl font-bold">—</span>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-1">Adversaires</div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeScore('enemy',-1)" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded font-bold">-</button>
+                        <span id="score-enemy" class="text-2xl font-bold text-white w-8 text-center">5</span>
+                        <button onclick="changeScore('enemy',1)" class="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded font-bold">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consecutive losses -->
+        <div>
+            <label class="text-sm font-bold uppercase tracking-wider text-gray-400 block mb-2">Défaites consécutives</label>
+            <div class="flex gap-2">
+                <button onclick="setLoss(0)" id="loss-0" class="flex-1 py-2 rounded border text-sm font-bold">0</button>
+                <button onclick="setLoss(1)" id="loss-1" class="flex-1 py-2 rounded border text-sm font-bold">1</button>
+                <button onclick="setLoss(2)" id="loss-2" class="flex-1 py-2 rounded border text-sm font-bold">2</button>
+                <button onclick="setLoss(3)" id="loss-3" class="flex-1 py-2 rounded border text-sm font-bold">3+</button>
+            </div>
+        </div>
+
+        <!-- Last round result -->
+        <div>
+            <label class="text-sm font-bold uppercase tracking-wider text-gray-400 block mb-2">Dernier round</label>
+            <div class="flex gap-2">
+                <button onclick="setResult('win')" id="result-win"
+                    class="flex-1 py-2 rounded border border-gray-700 text-sm font-bold text-gray-300">Victoire</button>
+                <button onclick="setResult('loss')" id="result-loss"
+                    class="flex-1 py-2 rounded border border-gray-700 text-sm font-bold text-gray-300">Défaite</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendation -->
+    <div id="recommendation" class="rec-card bg-gray-900 border-2 rounded-xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div id="rec-icon" class="text-3xl"></div>
+            <div>
+                <div id="rec-type" class="text-xl font-bold uppercase tracking-wider"></div>
+                <div id="rec-subtitle" class="text-sm text-gray-400"></div>
+            </div>
+        </div>
+        <div id="rec-items" class="space-y-2 mb-4"></div>
+        <div id="rec-tip" class="text-sm text-gray-400 border-t border-gray-700 pt-3 mt-3"></div>
+    </div>
+</main>
+
+<script>
+let myScore = 5, enemyScore = 5, consecutiveLoss = 0, lastResult = null;
+
+const lossBonus = [1900, 2400, 2900, 2900];
+
+function changeScore(team, delta) {
+    if (team === 'my') myScore = Math.max(0, Math.min(12, myScore + delta));
+    else enemyScore = Math.max(0, Math.min(12, enemyScore + delta));
+    document.getElementById('score-my').textContent = myScore;
+    document.getElementById('score-enemy').textContent = enemyScore;
+    update();
+}
+
+function setLoss(n) {
+    consecutiveLoss = n;
+    [0,1,2,3].forEach(i => {
+        const btn = document.getElementById('loss-' + i);
+        btn.className = i === n
+            ? 'flex-1 py-2 rounded border border-red-500 bg-red-900/30 text-red-300 text-sm font-bold'
+            : 'flex-1 py-2 rounded border border-gray-700 text-gray-400 text-sm font-bold';
+    });
+    update();
+}
+
+function setResult(r) {
+    lastResult = r;
+    ['win','loss'].forEach(x => {
+        document.getElementById('result-' + x).className = x === r
+            ? 'flex-1 py-2 rounded border border-red-500 bg-red-900/30 text-red-300 text-sm font-bold'
+            : 'flex-1 py-2 rounded border border-gray-700 text-gray-400 text-sm font-bold';
+    });
+    update();
+}
+
+function update() {
+    const credits = parseInt(document.getElementById('credits').value);
+    document.getElementById('credits-val').textContent = credits.toLocaleString() + ' ¢';
+
+    const rec = getRecommendation(credits);
+    const card = document.getElementById('recommendation');
+    card.style.borderColor = rec.color;
+    document.getElementById('rec-icon').textContent = rec.icon;
+    document.getElementById('rec-type').textContent = rec.type;
+    document.getElementById('rec-type').style.color = rec.color;
+    document.getElementById('rec-subtitle').textContent = rec.subtitle;
+
+    const itemsEl = document.getElementById('rec-items');
+    itemsEl.innerHTML = rec.items.map(item =>
+        `<div class="flex justify-between items-center bg-gray-800 rounded px-3 py-2">
+            <span class="text-sm text-white">${item.name}</span>
+            <span class="text-xs font-bold" style="color:${rec.color}">${item.cost} ¢</span>
+        </div>`
+    ).join('');
+
+    document.getElementById('rec-tip').textContent = rec.tip;
+}
+
+function getRecommendation(credits) {
+    const diff = myScore - enemyScore;
+
+    if (credits >= 3900) {
+        return {
+            icon: '💪', type: 'FULL BUY', color: '#22c55e',
+            subtitle: 'T\'as les crédits, achète full.',
+            items: [
+                { name: 'Vandal / Phantom', cost: 2900 },
+                { name: 'Armor complète', cost: 1000 },
+                { name: 'Utilitaires', cost: credits - 3900 >= 400 ? 'Max' : 'Reste' },
+            ],
+            tip: diff < -3 ? '⚠️ T\'es mené, joue agressif et prends des trades propres.' :
+                 diff > 3  ? '✅ T\'es en avance, joue safe et convertis.' :
+                             '🎯 Score serré — joue sur tes positions et communique.'
+        };
+    }
+    if (credits >= 2400) {
+        return {
+            icon: '⚡', type: 'HALF BUY', color: '#f59e0b',
+            subtitle: 'Assez pour un SMG ou un Marshall.',
+            items: [
+                { name: credits >= 2900 ? 'Spectre' : 'Stinger / Ghost', cost: credits >= 2900 ? 1600 : 900 },
+                { name: 'Armor légère', cost: 400 },
+                { name: 'Utilitaire clé', cost: 200 },
+            ],
+            tip: '💡 Ne dépense pas tout — garde assez pour full buy au prochain round si tu perds.'
+        };
+    }
+    if (credits >= 800) {
+        const nextRoundBonus = lossBonus[Math.min(consecutiveLoss, 3)];
+        return {
+            icon: '💰', type: 'ECO / SAVE', color: '#3b82f6',
+            subtitle: 'Sauvegarde pour le prochain round.',
+            items: [
+                { name: 'Classic / Shorty', cost: 200 },
+                { name: 'Pas d\'armor', cost: 0 },
+                { name: 'Budget total max', cost: 800 },
+            ],
+            tip: `💸 Tu recevras ~${nextRoundBonus} ¢ si tu perds ce round. Garde tes crédits pour full buy au prochain.`
+        };
+    }
+    return {
+        icon: '🏳️', type: 'FORCE ECO', color: '#6b7280',
+        subtitle: 'Rien à faire — attends le prochain round.',
+        items: [{ name: 'Classic uniquement', cost: 0 }],
+        tip: '😤 Parfois il faut juste accepter le round perdu et préparer le prochain.'
+    };
+}
+
+// Init
+setLoss(0);
+update();
+</script>
+</body>
+</html>

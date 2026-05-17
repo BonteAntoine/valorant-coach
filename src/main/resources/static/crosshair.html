@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crosshair Picker — Valorant Coach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1117; }
+        .option-btn { transition: all 0.15s; }
+        .option-btn:hover { transform: translateY(-1px); }
+        .option-selected { border-color: #ff4655 !important; background: rgba(255,70,85,0.1) !important; color: white !important; }
+        .crosshair-preview { position: relative; width: 120px; height: 120px; }
+        .ch-line { position: absolute; background: currentColor; border-radius: 1px; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
+    </div>
+    <nav class="flex gap-4 text-sm font-bold uppercase tracking-wider">
+        <a href="/" class="text-gray-400 hover:text-white transition-colors">Coaching</a>
+        <a href="/quiz.html" class="text-gray-400 hover:text-white transition-colors">Quiz</a>
+        <a href="/eco.html" class="text-gray-400 hover:text-white transition-colors">Éco</a>
+        <a href="/crosshair.html" class="text-red-400">Crosshair</a>
+    </nav>
+</header>
+
+<main class="max-w-2xl mx-auto px-6 py-12">
+    <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-white mb-2">Crosshair Picker</h2>
+        <p class="text-gray-400">Réponds à 5 questions — on te trouve le crosshair parfait pour ton style.</p>
+    </div>
+
+    <!-- Quiz -->
+    <div id="quiz-section">
+        <div id="progress-bar" class="w-full bg-gray-800 rounded-full h-1 mb-8">
+            <div id="progress-fill" class="bg-red-500 h-1 rounded-full transition-all duration-300" style="width:0%"></div>
+        </div>
+
+        <div id="questions-container" class="space-y-8"></div>
+
+        <button id="btn-result" onclick="showResult()" disabled
+            class="w-full mt-8 bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl uppercase tracking-wider transition-colors">
+            Voir mon crosshair
+        </button>
+    </div>
+
+    <!-- Result -->
+    <div id="result-section" class="hidden">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center mb-6">
+            <div class="text-sm uppercase tracking-widest text-gray-500 mb-2">Ton crosshair idéal</div>
+            <h3 id="result-name" class="text-2xl font-bold text-white mb-1"></h3>
+            <p id="result-desc" class="text-gray-400 text-sm mb-8"></p>
+
+            <!-- Visual preview -->
+            <div class="flex justify-center mb-8">
+                <div class="bg-gray-800 rounded-xl p-8 flex items-center justify-center" style="width:200px;height:200px;background: url('https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/minimap.png') center/cover; border-radius:12px;">
+                    <canvas id="ch-canvas" width="60" height="60"></canvas>
+                </div>
+            </div>
+
+            <!-- Code -->
+            <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-2">Code in-game (Paramètres → Crosshair → Importer)</div>
+                <div class="flex items-center gap-2 justify-center">
+                    <code id="result-code" class="text-red-400 text-xs font-mono break-all"></code>
+                    <button onclick="copyCode()" class="text-gray-400 hover:text-white ml-2 flex-shrink-0" title="Copier">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="result-pros" class="text-left space-y-2 mb-6"></div>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="resetQuiz()" class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider">
+                Recommencer
+            </button>
+        </div>
+    </div>
+</main>
+
+<script>
+const QUESTIONS = [
+    {
+        id: 'role', text: 'Quel est ton rôle principal ?',
+        options: [
+            { label: 'Duelliste', value: 'duelist', icon: '⚔️' },
+            { label: 'Initiateur', value: 'initiator', icon: '🔦' },
+            { label: 'Contrôleur', value: 'controller', icon: '💨' },
+            { label: 'Sentinelle', value: 'sentinel', icon: '🛡️' },
+        ]
+    },
+    {
+        id: 'range', text: 'Tes duels se passent plutôt à quelle distance ?',
+        options: [
+            { label: 'Close range', value: 'close', icon: '🔥' },
+            { label: 'Medium range', value: 'medium', icon: '🎯' },
+            { label: 'Long range', value: 'long', icon: '🔭' },
+            { label: 'Toutes distances', value: 'all', icon: '♾️' },
+        ]
+    },
+    {
+        id: 'hs', text: 'Ton headshot % moyen ?',
+        options: [
+            { label: 'Moins de 15%', value: 'low', icon: '😅' },
+            { label: '15 - 25%', value: 'mid', icon: '👍' },
+            { label: 'Plus de 25%', value: 'high', icon: '🏆' },
+        ]
+    },
+    {
+        id: 'size', text: 'Tu préfères un crosshair ?',
+        options: [
+            { label: 'Petit et précis', value: 'small', icon: '·' },
+            { label: 'Moyen équilibré', value: 'medium', icon: '+' },
+            { label: 'Grand visible', value: 'large', icon: '✛' },
+        ]
+    },
+    {
+        id: 'dot', text: 'Avec ou sans point central ?',
+        options: [
+            { label: 'Avec le point', value: 'dot', icon: '⊕' },
+            { label: 'Sans le point', value: 'nodot', icon: '⊞' },
+        ]
+    }
+];
+
+const CROSSHAIRS = [
+    {
+        name: 'Pro Minimal',
+        desc: 'Le crosshair des pros — petit, statique, ultra précis. Idéal pour les duellistes agressifs.',
+        code: '0;P;c;5;h;0;m;1;0l;3;0o;1;0a;1;0f;0;1t;1;1l;0;1o;3;1a;0;1m;0;1f;0',
+        draw: (ctx) => { cross(ctx, 3, 1, 4, false); },
+        tags: ['duelist','high','small','nodot','medium','all']
+    },
+    {
+        name: 'Dot Only',
+        desc: 'Un simple point central. Pour les joueurs avec une très bonne mécanique de flick.',
+        code: '0;P;c;5;h;0;m;1;0l;0;0o;0;0a;0;0f;0;1b;1;1t;5;1o;2;1a;1',
+        draw: (ctx) => { dot(ctx, 3); },
+        tags: ['high','small','dot','long']
+    },
+    {
+        name: 'Classic Balanced',
+        desc: 'Équilibré pour tous les styles. Bon point de départ si tu cherches ta configuration.',
+        code: '0;P;c;5;h;0;m;1;0l;4;0o;2;0a;1;0f;0;1b;1;1t;3;1o;2;1a;0.5',
+        draw: (ctx) => { cross(ctx, 4, 2, 5, true); },
+        tags: ['initiator','controller','sentinel','medium','mid','medium','all']
+    },
+    {
+        name: 'SMG Player',
+        desc: 'Crosshair légèrement plus grand, parfait pour les combats close/medium range rapides.',
+        code: '0;P;c;5;h;0;m;1;0l;5;0o;3;0a;1;0f;0;1b;1;1t;3;1o;3;1a;0.5',
+        draw: (ctx) => { cross(ctx, 5, 3, 5, true); },
+        tags: ['close','low','large','duelist']
+    },
+    {
+        name: 'Sniper / Op',
+        desc: 'Minimal pour ne pas gêner la visée à longue distance. Dot central pour la précision.',
+        code: '0;P;c;5;h;0;m;1;0l;2;0o;1;0a;1;0f;0;1b;1;1t;4;1o;1;1a;1',
+        draw: (ctx) => { cross(ctx, 2, 1, 4, true); },
+        tags: ['long','high','small','dot','sentinel']
+    },
+    {
+        name: 'Support Visible',
+        desc: 'Plus grand et visible — idéal pour les rôles utilitaires où la précision prime moins.',
+        code: '0;P;c;5;h;0;m;1;0l;6;0o;4;0a;1;0f;0;1b;0',
+        draw: (ctx) => { cross(ctx, 6, 4, 5, false); },
+        tags: ['controller','sentinel','low','large','nodot']
+    },
+];
+
+let answers = {};
+
+function buildQuiz() {
+    const container = document.getElementById('questions-container');
+    container.innerHTML = '';
+    QUESTIONS.forEach((q, qi) => {
+        const div = document.createElement('div');
+        div.id = 'q-' + q.id;
+        div.innerHTML = `
+            <p class="font-bold text-white mb-3">${qi + 1}. ${q.text}</p>
+            <div class="grid grid-cols-2 gap-2">
+                ${q.options.map(o => `
+                    <button onclick="selectAnswer('${q.id}','${o.value}',this)"
+                        class="option-btn bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-4 py-3 text-sm font-bold text-left flex items-center gap-2">
+                        <span>${o.icon}</span><span>${o.label}</span>
+                    </button>`).join('')}
+            </div>`;
+        container.appendChild(div);
+    });
+}
+
+function selectAnswer(qId, value, btn) {
+    answers[qId] = value;
+    const btns = btn.parentElement.querySelectorAll('button');
+    btns.forEach(b => b.classList.remove('option-selected'));
+    btn.classList.add('option-selected');
+
+    const answered = Object.keys(answers).length;
+    document.getElementById('progress-fill').style.width = (answered / QUESTIONS.length * 100) + '%';
+    document.getElementById('btn-result').disabled = answered < QUESTIONS.length;
+}
+
+function showResult() {
+    const tags = Object.values(answers);
+    let best = CROSSHAIRS[0];
+    let bestScore = -1;
+
+    CROSSHAIRS.forEach(ch => {
+        const score = tags.filter(t => ch.tags.includes(t)).length;
+        if (score > bestScore) { bestScore = score; best = ch; }
+    });
+
+    document.getElementById('quiz-section').classList.add('hidden');
+    document.getElementById('result-section').classList.remove('hidden');
+    document.getElementById('result-name').textContent = best.name;
+    document.getElementById('result-desc').textContent = best.desc;
+    document.getElementById('result-code').textContent = best.code;
+
+    const canvas = document.getElementById('ch-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 60, 60);
+    ctx.fillStyle = '#ff4655';
+    ctx.strokeStyle = '#000';
+    best.draw(ctx);
+}
+
+function cross(ctx, len, offset, thickness, showDot) {
+    const cx = 30, cy = 30;
+    ctx.fillStyle = '#00ff41';
+
+    // Top
+    ctx.fillRect(cx - thickness/2, cy - offset - len, thickness, len);
+    // Bottom
+    ctx.fillRect(cx - thickness/2, cy + offset, thickness, len);
+    // Left
+    ctx.fillRect(cx - offset - len, cy - thickness/2, len, thickness);
+    // Right
+    ctx.fillRect(cx + offset, cy - thickness/2, len, thickness);
+
+    if (showDot) dot(ctx, 2);
+}
+
+function dot(ctx, size) {
+    ctx.fillStyle = '#00ff41';
+    ctx.beginPath();
+    ctx.arc(30, 30, size, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function copyCode() {
+    const code = document.getElementById('result-code').textContent;
+    navigator.clipboard.writeText(code).then(() => alert('Code copié ! Colle-le dans Paramètres → Crosshair → Importer'));
+}
+
+function resetQuiz() {
+    answers = {};
+    document.getElementById('result-section').classList.add('hidden');
+    document.getElementById('quiz-section').classList.remove('hidden');
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('btn-result').disabled = true;
+    buildQuiz();
+}
+
+buildQuiz();
+</script>
+</body>
+</html>
