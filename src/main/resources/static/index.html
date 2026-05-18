@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Valorant Coach AI</title>
+    <title>ValoCoach AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -25,7 +25,7 @@
     <header class="relative border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
             <div class="w-3 h-3 rounded-full bg-red-500"></div>
-            <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
+            <h1 class="text-xl font-bold tracking-widest uppercase text-white">ValoCoach <span class="text-red-500">AI</span></h1>
         </div>
         <div class="flex items-center gap-3">
             <div id="user-status" class="flex items-center gap-2"></div>
@@ -37,7 +37,7 @@
 
     <main class="max-w-4xl mx-auto px-6 py-12">
 
-        <!-- Search form -->
+        <!-- Hero / Search form -->
         <div class="text-center mb-12">
             <h2 class="text-3xl font-bold text-white mb-2">Analyse ta progression</h2>
             <p class="text-gray-400 mb-8">Entre ton Riot ID pour recevoir un rapport de coaching personnalisé</p>
@@ -53,7 +53,7 @@
                     Analyser
                 </button>
             </div>
-            <div class="flex gap-3 justify-center">
+            <div class="flex gap-3 justify-center mb-4">
                 <button id="btn-drill" onclick="setStyle('drill')"
                     class="style-btn bg-red-900 border border-red-500 text-red-300 text-sm font-bold px-5 py-2 rounded uppercase tracking-wider transition-all">
                     🔥 Drill Sergeant
@@ -63,6 +63,28 @@
                     🎯 Coach Pro
                 </button>
             </div>
+
+            <!-- Badge freemium -->
+            <div id="free-badge" class="hidden">
+                <span class="inline-block bg-green-900/40 border border-green-700 text-green-400 text-xs font-bold px-4 py-1.5 rounded-full">
+                    ✅ 1 analyse gratuite disponible — aucune carte requise
+                </span>
+            </div>
+        </div>
+
+        <!-- Premium upsell (affiché si analyse gratuite déjà utilisée) -->
+        <div id="upsell-banner" class="hidden bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border border-yellow-700 rounded-xl p-6 mb-8 text-center">
+            <p class="text-yellow-300 font-bold text-lg mb-1">🔥 Ta 1ère analyse est terminée !</p>
+            <p class="text-gray-400 text-sm mb-4">Passe Premium pour des analyses illimitées + plan d'entraînement 4 semaines + accès complet.</p>
+            <div class="flex justify-center gap-6 mb-5 text-sm text-gray-300">
+                <span>✅ Analyses illimitées</span>
+                <span>✅ Plan 4 semaines</span>
+                <span>✅ 2 styles de coaching</span>
+                <span>✅ Accès tous les outils</span>
+            </div>
+            <button onclick="upgrade()" class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-8 py-3 rounded uppercase tracking-wider">
+                ⭐ Passer Premium — 5€/mois
+            </button>
         </div>
 
         <!-- Loading -->
@@ -111,11 +133,13 @@
         const token      = localStorage.getItem('valo_token');
         const userEmail  = localStorage.getItem('valo_email');
         const subscribed = localStorage.getItem('valo_subscribed') === 'true';
+        const freeUsed   = localStorage.getItem('valo_free_used') === 'true';
 
         function logout() {
             localStorage.removeItem('valo_token');
             localStorage.removeItem('valo_email');
             localStorage.removeItem('valo_subscribed');
+            localStorage.removeItem('valo_free_used');
             window.location.reload();
         }
 
@@ -133,27 +157,42 @@
         window.addEventListener('DOMContentLoaded', () => {
             const navEl = document.getElementById('user-status');
             if (!navEl) return;
+
             if (!token) {
-                navEl.innerHTML = `<a href="/login.html" class="bg-red-500 hover:bg-red-600 text-white text-sm font-bold px-4 py-2 rounded uppercase tracking-wider">Se connecter</a>`;
+                navEl.innerHTML = `
+                    <a href="/login.html" class="bg-red-500 hover:bg-red-600 text-white text-sm font-bold px-4 py-2 rounded uppercase tracking-wider">
+                        Se connecter
+                    </a>`;
             } else if (!subscribed) {
                 navEl.innerHTML = `
                     <span class="text-xs text-gray-500 hidden sm:inline">${userEmail}</span>
                     <button onclick="upgrade()" class="bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold px-4 py-2 rounded uppercase tracking-wider">⭐ Premium</button>
-                    <button onclick="logout()" class="text-gray-500 hover:text-white text-xs">Déco</button>`;
+                    <button onclick="logout()" class="text-xs text-gray-500 hover:text-red-400 border border-gray-700 hover:border-red-500 px-3 py-2 rounded transition-colors">Déco</button>`;
             } else {
                 navEl.innerHTML = `
-                    <span class="text-xs text-green-400 font-bold">✅ Premium</span>
+                    <span class="text-xs text-green-400 font-bold hidden sm:inline">✅ Premium</span>
                     <span class="text-xs text-gray-500 hidden sm:inline">${userEmail}</span>
-                    <button onclick="logout()" class="text-gray-500 hover:text-white text-xs">Déco</button>`;
+                    <button onclick="logout()" class="text-xs text-gray-500 hover:text-red-400 border border-gray-700 hover:border-red-500 px-3 py-2 rounded transition-colors">Déco</button>`;
+            }
+
+            // Badge freemium ou upsell
+            if (!token) {
+                // non connecté → on montre juste le badge "gratuit"
+                document.getElementById('free-badge').classList.remove('hidden');
+            } else if (!subscribed && !freeUsed) {
+                document.getElementById('free-badge').classList.remove('hidden');
+            } else if (!subscribed && freeUsed) {
+                document.getElementById('upsell-banner').classList.remove('hidden');
             }
 
             // Redirect Stripe success
             const params = new URLSearchParams(window.location.search);
             if (params.get('subscribed') === 'true') {
                 localStorage.setItem('valo_subscribed', 'true');
-                document.getElementById('error').textContent = '🎉 Abonnement activé ! Bienvenue en Premium.';
-                document.getElementById('error').classList.remove('hidden');
-                document.getElementById('error').classList.add('bg-green-900/30', 'border-green-700', 'text-green-300');
+                const errEl = document.getElementById('error');
+                errEl.textContent = '🎉 Abonnement activé ! Bienvenue en Premium.';
+                errEl.classList.remove('hidden');
+                errEl.classList.add('bg-green-900/30', 'border-green-700', 'text-green-300');
             }
         });
 
@@ -172,11 +211,9 @@
 
         async function analyze() {
             if (!token) { window.location.href = '/login.html'; return; }
-            if (!subscribed) { upgrade(); return; }
 
             const name = document.getElementById('input-name').value.trim();
-            const tag = document.getElementById('input-tag').value.trim();
-
+            const tag  = document.getElementById('input-tag').value.trim();
             if (!name || !tag) return;
 
             document.getElementById('loading').classList.remove('hidden');
@@ -185,11 +222,29 @@
             document.getElementById('btn-analyze').disabled = true;
 
             try {
-                const res = await fetch(`/api/coach/report?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&style=${currentStyle}`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
+                const res = await fetch(
+                    `/api/coach/report?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&style=${currentStyle}`,
+                    { headers: { 'Authorization': 'Bearer ' + token } }
+                );
+
+                if (res.status === 403) {
+                    // Analyse gratuite déjà utilisée
+                    localStorage.setItem('valo_free_used', 'true');
+                    document.getElementById('upsell-banner').classList.remove('hidden');
+                    document.getElementById('free-badge').classList.add('hidden');
+                    return;
+                }
+
                 if (!res.ok) throw new Error('Erreur serveur');
+
                 const data = await res.json();
+
+                // Si c'était la première analyse gratuite, marquer localement
+                if (!subscribed) {
+                    localStorage.setItem('valo_free_used', 'true');
+                    document.getElementById('free-badge').classList.add('hidden');
+                }
+
                 renderResults(data);
             } catch (e) {
                 document.getElementById('error').textContent = 'Une erreur est survenue. Vérifie ton Riot ID.';
@@ -205,7 +260,7 @@
             cards.innerHTML = '';
 
             data.matches.forEach(m => {
-                const kd = m.deaths > 0 ? (m.kills / m.deaths).toFixed(2) : m.kills.toFixed(2);
+                const kd    = m.deaths > 0 ? (m.kills / m.deaths).toFixed(2) : m.kills.toFixed(2);
                 const color = m.won ? 'border-green-600' : 'border-red-700';
                 const badge = m.won
                     ? '<span class="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">V</span>'
@@ -222,7 +277,7 @@
             });
 
             document.getElementById('analysis-content').innerHTML = marked.parse(data.analysis);
-            document.getElementById('plan-content').innerHTML = marked.parse(data.weeklyPlan);
+            document.getElementById('plan-content').innerHTML     = marked.parse(data.weeklyPlan);
             switchTab('analysis');
             document.getElementById('results').classList.remove('hidden');
         }

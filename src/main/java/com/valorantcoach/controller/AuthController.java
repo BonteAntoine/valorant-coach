@@ -34,7 +34,7 @@ public class AuthController {
         User user = new User(req.getEmail(), encoder.encode(req.getPassword()));
         userRepository.save(user);
         String token = jwtUtil.generateToken(user.getEmail());
-        return ResponseEntity.ok(new AuthResponse(token, user.getEmail(), false));
+        return ResponseEntity.ok(new AuthResponse(token, user.getEmail(), false, false));
     }
 
     @PostMapping("/login")
@@ -44,7 +44,8 @@ public class AuthController {
                 .map(u -> ResponseEntity.ok(new AuthResponse(
                         jwtUtil.generateToken(u.getEmail()),
                         u.getEmail(),
-                        u.isSubscribed())))
+                        u.isSubscribed(),
+                        u.isFreeAnalysisUsed())))
                 .orElse(ResponseEntity.status(401).build());
     }
 
@@ -54,7 +55,7 @@ public class AuthController {
         if (!jwtUtil.isValid(token)) return ResponseEntity.status(401).build();
         String email = jwtUtil.extractEmail(token);
         return userRepository.findByEmail(email)
-                .map(u -> ResponseEntity.ok(new AuthResponse(token, u.getEmail(), u.isSubscribed())))
+                .map(u -> ResponseEntity.ok(new AuthResponse(token, u.getEmail(), u.isSubscribed(), u.isFreeAnalysisUsed())))
                 .orElse(ResponseEntity.status(404).build());
     }
 }

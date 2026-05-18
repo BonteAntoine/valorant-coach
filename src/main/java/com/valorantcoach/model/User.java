@@ -22,6 +22,8 @@ public class User {
 
     private boolean subscribed = false;
 
+    private boolean freeAnalysisUsed = false;
+
     private String stripeCustomerId;
 
     public User(String email, String password) {
