@@ -33,16 +33,20 @@
 </head>
 <body class="text-gray-200 min-h-screen">
 
-    <header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <header class="relative border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <a href="/" class="text-gray-500 hover:text-white text-sm">← Accueil</a>
-            <span class="text-gray-700">|</span>
-            <h1 class="text-lg font-bold tracking-widest uppercase text-white">Quiz <span class="text-red-500">Callouts</span></h1>
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
         </div>
-        <div id="score-display" class="hidden text-sm font-bold text-gray-400">
-            Score : <span id="score-val" class="text-white">0</span> / <span id="score-total">10</span>
+        <div class="flex items-center gap-4">
+            <div id="score-display" class="hidden text-sm font-bold text-gray-400">
+                Score : <span id="score-val" class="text-white">0</span> / <span id="score-total">10</span>
+            </div>
+            <div id="main-nav"></div>
         </div>
     </header>
+    <script src="/nav.js"></script>
+    <script>renderNav('quiz')</script>
 
     <!-- Map selection -->
     <div id="screen-select" class="max-w-3xl mx-auto px-6 py-12 text-center">
@@ -60,7 +64,7 @@
         <div class="w-full bg-gray-800 rounded-full h-1.5 mb-4">
             <div id="timer-bar" class="bg-red-500 h-1.5 rounded-full w-full"></div>
         </div>
-        <p class="text-center text-white font-bold text-lg mb-4">Où se trouve <span id="callout-name" class="text-red-400"></span> ?</p>
+        <p class="text-center text-white font-bold text-lg mb-4">📍 Quel est le nom de <span class="text-red-400">cette zone</span> ?</p>
         <div class="map-container rounded-xl overflow-hidden mb-6 mx-auto" style="max-width:560px">
             <img id="map-img" src="" alt="map" class="w-full block">
             <div id="callout-dot" class="callout-dot hidden"></div>
