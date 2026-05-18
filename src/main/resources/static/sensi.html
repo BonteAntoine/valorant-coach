@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculateur Sensi — ValoCoach AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f1117; }
+        input[type=range] { accent-color: #ff4655; }
+        .gauge-bar { transition: width 0.4s ease; }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <a href="/" class="text-xl font-bold tracking-widest uppercase text-white">ValoCoach <span class="text-red-500">AI</span></a>
+    </div>
+    <div id="main-nav"></div>
+</header>
+<script src="/nav.js"></script>
+<script>renderNav('sensi')</script>
+
+<main class="max-w-2xl mx-auto px-6 py-12">
+
+    <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-white mb-2">Calculateur de Sensibilité</h2>
+        <p class="text-gray-400">Trouve ton eDPI idéal et compare-toi aux pros</p>
+    </div>
+
+    <!-- Inputs -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+
+            <!-- DPI -->
+            <div>
+                <label class="text-xs text-gray-400 uppercase tracking-wider block mb-3">
+                    DPI souris — <span id="dpi-val" class="text-red-400 font-bold">800</span>
+                </label>
+                <input type="range" id="dpi" min="100" max="3200" step="100" value="800"
+                    class="w-full" oninput="update()">
+                <div class="flex justify-between text-xs text-gray-600 mt-1">
+                    <span>100</span><span>800</span><span>1600</span><span>3200</span>
+                </div>
+                <!-- Raccourcis DPI courants -->
+                <div class="flex gap-2 mt-3 flex-wrap">
+                    <span class="text-xs text-gray-500">Communs :</span>
+                    <button onclick="setDpi(400)"  class="dpi-btn text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded">400</button>
+                    <button onclick="setDpi(800)"  class="dpi-btn text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded">800</button>
+                    <button onclick="setDpi(1600)" class="dpi-btn text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded">1600</button>
+                    <button onclick="setDpi(3200)" class="dpi-btn text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded">3200</button>
+                </div>
+            </div>
+
+            <!-- Sensi in-game -->
+            <div>
+                <label class="text-xs text-gray-400 uppercase tracking-wider block mb-3">
+                    Sensibilité in-game — <span id="sensi-val" class="text-red-400 font-bold">0.30</span>
+                </label>
+                <input type="range" id="sensi" min="0.05" max="2.00" step="0.01" value="0.30"
+                    class="w-full" oninput="update()">
+                <div class="flex justify-between text-xs text-gray-600 mt-1">
+                    <span>0.05</span><span>0.50</span><span>1.00</span><span>2.00</span>
+                </div>
+                <!-- Saisie manuelle -->
+                <div class="flex items-center gap-2 mt-3">
+                    <span class="text-xs text-gray-500">Saisie directe :</span>
+                    <input type="number" id="sensi-input" min="0.05" max="2.00" step="0.01" value="0.30"
+                        class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs w-20 focus:outline-none focus:border-red-500"
+                        oninput="setSensiManual(this.value)">
+                </div>
+            </div>
+        </div>
+
+        <!-- eDPI résultat -->
+        <div class="bg-gray-800 rounded-xl p-5 text-center">
+            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Ton eDPI</p>
+            <p id="edpi" class="text-5xl font-bold text-white mb-1">240</p>
+            <p class="text-xs text-gray-500">eDPI = DPI × Sensibilité in-game</p>
+        </div>
+    </div>
+
+    <!-- Jauge -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">Position vs la communauté pro</p>
+
+        <div class="relative h-6 bg-gray-800 rounded-full overflow-hidden mb-2">
+            <!-- Zones colorées -->
+            <div class="absolute inset-0 flex">
+                <div class="h-full bg-blue-900/60"   style="width:20%"></div>  <!-- Trop bas <150 -->
+                <div class="h-full bg-green-900/60"  style="width:40%"></div>  <!-- Idéal 150-400 -->
+                <div class="h-full bg-yellow-900/60" style="width:25%"></div>  <!-- Élevé 400-700 -->
+                <div class="h-full bg-red-900/60"    style="width:15%"></div>  <!-- Trop haut >700 -->
+            </div>
+            <!-- Curseur -->
+            <div id="gauge-cursor" class="absolute top-0 h-full w-1 bg-white rounded-full transition-all duration-400" style="left:32%"></div>
+        </div>
+
+        <div class="flex justify-between text-xs text-gray-500">
+            <span class="text-blue-400">Trop bas</span>
+            <span class="text-green-400">Zone pro (150–400)</span>
+            <span class="text-yellow-400">Élevé</span>
+            <span class="text-red-400">Très haut</span>
+        </div>
+
+        <!-- Verdict -->
+        <div id="verdict" class="mt-4 rounded-lg p-4 text-sm font-medium text-center"></div>
+    </div>
+
+    <!-- Convertisseur -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">Convertisseur — garder le même eDPI</p>
+        <p class="text-gray-400 text-sm mb-3">Si tu changes de DPI, quelle sensi utiliser ?</p>
+        <div class="flex gap-3 flex-wrap items-center">
+            <span class="text-xs text-gray-500">Nouveau DPI :</span>
+            <button onclick="convert(400)"  class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-2 rounded">400</button>
+            <button onclick="convert(800)"  class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-2 rounded">800</button>
+            <button onclick="convert(1600)" class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-2 rounded">1600</button>
+            <button onclick="convert(3200)" class="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-2 rounded">3200</button>
+        </div>
+        <div id="convert-result" class="hidden mt-4 bg-gray-800 rounded-lg p-4 text-center">
+            <p class="text-xs text-gray-400 mb-1">Pour garder eDPI <span id="conv-edpi" class="text-white font-bold"></span> à <span id="conv-dpi" class="text-white font-bold"></span> DPI :</p>
+            <p class="text-3xl font-bold text-red-400">Sensi : <span id="conv-sensi"></span></p>
+        </div>
+    </div>
+
+    <!-- Pros comparaison -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">Comparaison avec les pros</p>
+        <div class="space-y-2" id="pros-list"></div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-4">⚙️ Checklist optimisation</p>
+        <div class="space-y-3 text-sm">
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" class="mt-0.5 accent-red-500">
+                <span class="text-gray-300">Panneau de config → Souris → <strong class="text-white">décocher "Améliorer la précision du pointeur"</strong> (accélération souris)</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" class="mt-0.5 accent-red-500">
+                <span class="text-gray-300">Valorant Settings → <strong class="text-white">Raw Input Buffer : ON</strong></span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" class="mt-0.5 accent-red-500">
+                <span class="text-gray-300">Jouer sur un <strong class="text-white">vrai mousepad</strong> (pas une surface irrégulière)</span>
+            </label>
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" class="mt-0.5 accent-red-500">
+                <span class="text-gray-300">Garder la même sensi <strong class="text-white">minimum 2 semaines</strong> avant de changer</span>
+            </label>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    const PROS = [
+        { name: 'TenZ',      team: 'Sentinels',  dpi: 800,  sensi: 0.408, edpi: 326 },
+        { name: 'Aspas',     team: 'Loud',        dpi: 1600, sensi: 0.17,  edpi: 272 },
+        { name: 'Cryocells', team: 'Sentinels',  dpi: 800,  sensi: 0.28,  edpi: 224 },
+        { name: 'Derke',     team: 'Fnatic',      dpi: 800,  sensi: 0.22,  edpi: 176 },
+        { name: 'Chronicle', team: 'Team Vitality',dpi: 800, sensi: 0.33,  edpi: 264 },
+        { name: 'nAts',      team: 'Team Vitality',dpi: 800, sensi: 0.29,  edpi: 232 },
+        { name: 'Demon1',    team: 'EG',          dpi: 1600, sensi: 0.195, edpi: 312 },
+        { name: 'Less',      team: 'Loud',        dpi: 800,  sensi: 0.315, edpi: 252 },
+    ];
+
+    function getDpi()   { return parseInt(document.getElementById('dpi').value); }
+    function getSensi() { return parseFloat(document.getElementById('sensi').value); }
+
+    function setDpi(val) {
+        document.getElementById('dpi').value = val;
+        update();
+    }
+
+    function setSensiManual(val) {
+        const v = Math.min(2.00, Math.max(0.05, parseFloat(val) || 0.05));
+        document.getElementById('sensi').value = v;
+        update();
+    }
+
+    function update() {
+        const dpi   = getDpi();
+        const sensi = getSensi();
+        const edpi  = Math.round(dpi * sensi);
+
+        document.getElementById('dpi-val').textContent   = dpi;
+        document.getElementById('sensi-val').textContent = sensi.toFixed(2);
+        document.getElementById('sensi-input').value     = sensi.toFixed(2);
+        document.getElementById('edpi').textContent      = edpi;
+
+        updateGauge(edpi);
+        updateVerdict(edpi);
+        updatePros(edpi);
+    }
+
+    function updateGauge(edpi) {
+        // Échelle : 0 → 1000+ mapped to 0% → 100%
+        const pct = Math.min(100, (edpi / 900) * 100);
+        document.getElementById('gauge-cursor').style.left = pct + '%';
+    }
+
+    function updateVerdict(edpi) {
+        const el = document.getElementById('verdict');
+        if (edpi < 150) {
+            el.className = 'mt-4 rounded-lg p-4 text-sm font-medium text-center bg-blue-900/30 border border-blue-700 text-blue-300';
+            el.innerHTML = `😴 <strong>Trop bas (${edpi})</strong> — Ta visée manque de réactivité. Essaie de monter à 200+.`;
+        } else if (edpi <= 280) {
+            el.className = 'mt-4 rounded-lg p-4 text-sm font-medium text-center bg-green-900/30 border border-green-700 text-green-300';
+            el.innerHTML = `✅ <strong>Parfait (${edpi})</strong> — Tu es dans la zone des pros. Ne change rien, travaille ta technique.`;
+        } else if (edpi <= 400) {
+            el.className = 'mt-4 rounded-lg p-4 text-sm font-medium text-center bg-yellow-900/30 border border-yellow-700 text-yellow-300';
+            el.innerHTML = `⚠️ <strong>Un peu élevé (${edpi})</strong> — Ça reste jouable, mais descendre vers 250-280 améliorera ta précision.`;
+        } else if (edpi <= 700) {
+            el.className = 'mt-4 rounded-lg p-4 text-sm font-medium text-center bg-orange-900/30 border border-orange-700 text-orange-300';
+            el.innerHTML = `🔥 <strong>Élevé (${edpi})</strong> — Les micro-ajustements sont difficiles. Baisse progressivement vers 300.`;
+        } else {
+            el.className = 'mt-4 rounded-lg p-4 text-sm font-medium text-center bg-red-900/30 border border-red-700 text-red-300';
+            el.innerHTML = `🚨 <strong>Très haut (${edpi})</strong> — C'est ton frein principal. Divise ton eDPI par 2 chaque semaine jusqu'à 300.`;
+        }
+    }
+
+    function updatePros(myEdpi) {
+        const list = document.getElementById('pros-list');
+        list.innerHTML = PROS.map(p => {
+            const diff = myEdpi - p.edpi;
+            const diffText = diff === 0 ? '= identique'
+                : diff > 0 ? `+${diff} (tu joues plus vite)`
+                : `${diff} (tu joues plus lentement)`;
+            const diffColor = Math.abs(diff) < 50 ? 'text-green-400'
+                : Math.abs(diff) < 150 ? 'text-yellow-400' : 'text-gray-500';
+            return `
+                <div class="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
+                    <div>
+                        <span class="font-bold text-white">${p.name}</span>
+                        <span class="text-xs text-gray-500 ml-2">${p.team}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-white font-bold">${p.edpi} eDPI</span>
+                        <span class="text-xs ${diffColor} ml-3">${diffText}</span>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function convert(newDpi) {
+        const edpi    = Math.round(getDpi() * getSensi());
+        const newSensi = (edpi / newDpi).toFixed(3);
+        document.getElementById('conv-edpi').textContent  = edpi;
+        document.getElementById('conv-dpi').textContent   = newDpi;
+        document.getElementById('conv-sensi').textContent = newSensi;
+        document.getElementById('convert-result').classList.remove('hidden');
+    }
+
+    // Init
+    update();
+</script>
+</body>
+</html>

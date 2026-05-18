@@ -7,6 +7,7 @@ function renderNav(activePage) {
         { href: '/crosshair.html',  label: 'Crosshair',   key: 'crosshair' },
         { href: '/challenges.html', label: 'Challenges',  key: 'challenges' },
         { href: '/lineups.html',    label: 'Lineups',     key: 'lineups' },
+        { href: '/sensi.html',      label: 'Sensi',       key: 'sensi' },
     ];
 
     const nav = document.getElementById('main-nav');
