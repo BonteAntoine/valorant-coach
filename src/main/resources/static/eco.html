@@ -164,52 +164,86 @@ function update() {
 
 function getRecommendation(credits) {
     const diff = myScore - enemyScore;
+    const FULL_BUY = 3900;
+    const HALF_BUY_COST = 2000; // Spectre + light armor + util
+    const ECO_MAX = 800;
 
-    if (credits >= 3900) {
+    // Bonus de perte si on perd CE round
+    const nextLoss = Math.min(consecutiveLoss + 1, 3);
+    const bonusIfLoss = lossBonus[nextLoss];
+
+    // Crédits disponibles le round PROCHAIN si on perd
+    const creditsNextRoundIfLoss = credits + bonusIfLoss;
+    // Crédits disponibles si on half buy et perd
+    const creditsNextIfHalf = (credits - HALF_BUY_COST) + bonusIfLoss;
+    // Crédits disponibles si on eco et perd
+    const creditsNextIfEco = (credits - ECO_MAX) + bonusIfLoss;
+
+    const canFullBuyNow   = credits >= FULL_BUY;
+    const canFullBuyNextIfHalf = creditsNextIfHalf >= FULL_BUY;
+    const canFullBuyNextIfEco  = creditsNextIfEco  >= FULL_BUY;
+
+    // ─── FULL BUY ───
+    if (canFullBuyNow) {
         return {
             icon: '💪', type: 'FULL BUY', color: '#22c55e',
-            subtitle: 'T\'as les crédits, achète full.',
+            subtitle: 'T\'as les crédits — achète full.',
             items: [
-                { name: 'Vandal / Phantom', cost: 2900 },
-                { name: 'Armor complète', cost: 1000 },
-                { name: 'Utilitaires', cost: credits - 3900 >= 400 ? 'Max' : 'Reste' },
+                { name: 'Vandal / Phantom', cost: '2900 ¢' },
+                { name: 'Armor complète',   cost: '1000 ¢' },
+                { name: 'Utilitaires',      cost: credits - FULL_BUY >= 400 ? 'Max' : 'Reste' },
             ],
-            tip: diff < -3 ? '⚠️ T\'es mené, joue agressif et prends des trades propres.' :
-                 diff > 3  ? '✅ T\'es en avance, joue safe et convertis.' :
-                             '🎯 Score serré — joue sur tes positions et communique.'
+            tip: diff < -3 ? '⚠️ T\'es mené — prends des trades propres, pas de jeu solo.' :
+                 diff > 3  ? '✅ T\'es en avance — joue safe, force pas les duels.' :
+                             '🎯 Score serré — communique bien les positions.'
         };
     }
-    if (credits >= 2400) {
+
+    // ─── HALF BUY rentable ───
+    // Half buy seulement si ça ne t'empêche pas de full buy au prochain round
+    if (credits >= HALF_BUY_COST && canFullBuyNextIfHalf) {
         return {
             icon: '⚡', type: 'HALF BUY', color: '#f59e0b',
-            subtitle: 'Assez pour un SMG ou un Marshall.',
+            subtitle: 'Tu peux forcer sans sacrifier le prochain round.',
             items: [
-                { name: credits >= 2900 ? 'Spectre' : 'Stinger / Ghost', cost: credits >= 2900 ? 1600 : 900 },
-                { name: 'Armor légère', cost: 400 },
-                { name: 'Utilitaire clé', cost: 200 },
+                { name: 'Spectre / Marshall', cost: '1600 ¢' },
+                { name: 'Armor légère',       cost: '400 ¢'  },
+                { name: 'Utilitaire clé',     cost: '200 ¢'  },
             ],
-            tip: '💡 Ne dépense pas tout — garde assez pour full buy au prochain round si tu perds.'
+            tip: `💡 Si tu perds ce round : tu auras ~${creditsNextIfHalf.toLocaleString()} ¢ → full buy assuré au prochain.`
         };
     }
-    if (credits >= 800) {
-        const nextRoundBonus = lossBonus[Math.min(consecutiveLoss, 3)];
+
+    // ─── ECO pour setup full buy round suivant ───
+    if (canFullBuyNextIfEco) {
         return {
-            icon: '💰', type: 'ECO / SAVE', color: '#3b82f6',
-            subtitle: 'Sauvegarde pour le prochain round.',
+            icon: '💰', type: 'ECO — SETUP FULL BUY', color: '#3b82f6',
+            subtitle: 'Perds ce round proprement, full buy au prochain.',
             items: [
-                { name: 'Classic / Shorty', cost: 200 },
-                { name: 'Pas d\'armor', cost: 0 },
-                { name: 'Budget total max', cost: 800 },
+                { name: 'Classic / Shorty uniquement', cost: '0-200 ¢' },
+                { name: 'Pas d\'armor',                cost: '0 ¢'      },
+                { name: 'Dépense max ce round',        cost: `${ECO_MAX} ¢` },
             ],
-            tip: `💸 Tu recevras ~${nextRoundBonus} ¢ si tu perds ce round. Garde tes crédits pour full buy au prochain.`
+            tip: `📈 En ecant maintenant : round prochain tu auras ~${creditsNextIfEco.toLocaleString()} ¢ → FULL BUY garanti. Un half buy maintenant te laisserait seulement ${creditsNextIfHalf.toLocaleString()} ¢ → trop juste.`
         };
     }
+
+    // ─── DOUBLE ECO ───
     return {
-        icon: '🏳️', type: 'FORCE ECO', color: '#6b7280',
-        subtitle: 'Rien à faire — attends le prochain round.',
-        items: [{ name: 'Classic uniquement', cost: 0 }],
-        tip: '😤 Parfois il faut juste accepter le round perdu et préparer le prochain.'
+        icon: '🏳️', type: 'DOUBLE ECO', color: '#6b7280',
+        subtitle: 'Deux rounds d\'eco pour revenir fort.',
+        items: [
+            { name: 'Classic uniquement', cost: '0 ¢' },
+            { name: 'Sauve tout',         cost: '0 ¢' },
+        ],
+        tip: `😤 Même en ecant deux rounds, tu accumuleras ~${creditsNextRoundFullBuy(credits)} ¢ — reste patient, le full buy arrive.`
     };
+}
+
+function creditsNextRoundFullBuy(credits) {
+    const b1 = lossBonus[Math.min(consecutiveLoss + 1, 3)];
+    const b2 = lossBonus[Math.min(consecutiveLoss + 2, 3)];
+    return (credits + b1 + b2).toLocaleString();
 }
 
 // Init
