@@ -27,7 +27,10 @@
             <div class="w-3 h-3 rounded-full bg-red-500"></div>
             <h1 class="text-xl font-bold tracking-widest uppercase text-white">Valorant Coach <span class="text-red-500">AI</span></h1>
         </div>
-        <div id="main-nav"></div>
+        <div class="flex items-center gap-3">
+            <div id="user-status" class="flex items-center gap-2"></div>
+            <div id="main-nav"></div>
+        </div>
     </header>
     <script src="/nav.js"></script>
     <script>renderNav('coaching')</script>
@@ -104,6 +107,57 @@
     </main>
 
     <script>
+        // ── Auth ──────────────────────────────────────────────────
+        const token      = localStorage.getItem('valo_token');
+        const userEmail  = localStorage.getItem('valo_email');
+        const subscribed = localStorage.getItem('valo_subscribed') === 'true';
+
+        function logout() {
+            localStorage.removeItem('valo_token');
+            localStorage.removeItem('valo_email');
+            localStorage.removeItem('valo_subscribed');
+            window.location.reload();
+        }
+
+        async function upgrade() {
+            if (!token) { window.location.href = '/login.html'; return; }
+            const res = await fetch('/api/stripe/checkout', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            window.location.href = data.url;
+        }
+
+        // Affiche le bon état dans le header
+        window.addEventListener('DOMContentLoaded', () => {
+            const navEl = document.getElementById('user-status');
+            if (!navEl) return;
+            if (!token) {
+                navEl.innerHTML = `<a href="/login.html" class="bg-red-500 hover:bg-red-600 text-white text-sm font-bold px-4 py-2 rounded uppercase tracking-wider">Se connecter</a>`;
+            } else if (!subscribed) {
+                navEl.innerHTML = `
+                    <span class="text-xs text-gray-500 hidden sm:inline">${userEmail}</span>
+                    <button onclick="upgrade()" class="bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold px-4 py-2 rounded uppercase tracking-wider">⭐ Premium</button>
+                    <button onclick="logout()" class="text-gray-500 hover:text-white text-xs">Déco</button>`;
+            } else {
+                navEl.innerHTML = `
+                    <span class="text-xs text-green-400 font-bold">✅ Premium</span>
+                    <span class="text-xs text-gray-500 hidden sm:inline">${userEmail}</span>
+                    <button onclick="logout()" class="text-gray-500 hover:text-white text-xs">Déco</button>`;
+            }
+
+            // Redirect Stripe success
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('subscribed') === 'true') {
+                localStorage.setItem('valo_subscribed', 'true');
+                document.getElementById('error').textContent = '🎉 Abonnement activé ! Bienvenue en Premium.';
+                document.getElementById('error').classList.remove('hidden');
+                document.getElementById('error').classList.add('bg-green-900/30', 'border-green-700', 'text-green-300');
+            }
+        });
+
+        // ── Coaching ──────────────────────────────────────────────
         let currentStyle = 'drill';
 
         function setStyle(style) {
@@ -117,6 +171,9 @@
         }
 
         async function analyze() {
+            if (!token) { window.location.href = '/login.html'; return; }
+            if (!subscribed) { upgrade(); return; }
+
             const name = document.getElementById('input-name').value.trim();
             const tag = document.getElementById('input-tag').value.trim();
 
@@ -128,7 +185,9 @@
             document.getElementById('btn-analyze').disabled = true;
 
             try {
-                const res = await fetch(`/api/coach/report?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&style=${currentStyle}`);
+                const res = await fetch(`/api/coach/report?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&style=${currentStyle}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
                 if (!res.ok) throw new Error('Erreur serveur');
                 const data = await res.json();
                 renderResults(data);
